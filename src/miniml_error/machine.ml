@@ -36,18 +36,20 @@ type mvalue =
   | MBool of bool                      (** Boolean value *)
   | MClosure of name * frame * environ (** Closure *)
   | MError                             (** Error state *)
+  | MException of string               (** Exception Value*)
+
 
 (**
-   There are three kinds of machine instructions.
+    There are three kinds of machine instructions.
 
-   The first kind manipules tha stack of machine values. These are
-   arithmetical operations, integer comparison, variable lookup,
-   placing constants onto the stack, and closure formation.
+    The first kind manipules tha stack of machine values. These are
+    arithmetical operations, integer comparison, variable lookup,
+    placing constants onto the stack, and closure formation.
 
-   The second kind are the control instructions. These are branching
-   instruction, execution of a closure, and popping of an environment.
+    The second kind are the control instructions. These are branching
+    instruction, execution of a closure, and popping of an environment.
 
-   The third kind is the instruction which causes the error state.
+    The third kind is the instruction which causes the error state.
 *)
 
 and instr =
@@ -65,6 +67,9 @@ and instr =
   | IBranch of frame * frame        (** branch *)
   | ICall                           (** execute a closure *)
   | IPopEnv                         (** pop environment *)
+  (* | IRaise                          * Raise an exception *)
+  | IHandle of frame * frame        (** Handles exception*)
+  | IExc of name                   (** To identify Exception*)
 
 (** A frame is a list (stack) of instructions *)
 and frame = instr list
@@ -77,6 +82,7 @@ and stack = mvalue list
 
 (** Exception indicating a runtime error *)
 exception Machine_error of string
+exception Runtime_exception of mvalue
 
 (** Report a runtime error *)
 let error msg = raise (Machine_error msg)
@@ -87,6 +93,7 @@ let string_of_mvalue = function
   | MBool b -> string_of_bool b
   | MClosure _ -> "<fun>" (* Closures cannot be reasonably displayed *)
   | MError -> "error"
+  | MException msg -> msg 
 
 (** [lookup x envs] scans through the list of environments [envs] and
     returns the first value of variable [x] found. *)
@@ -102,6 +109,7 @@ let pop = function
 (** Pop a boolean value from a stack. *)
 let pop_bool = function
     MBool b :: s -> (b, s)
+  | MException _::s -> (true,MException "GenericException"::s)
   | _ -> error "bool expected"
 
 (** Pop a value and a closure from a stack. *)
@@ -116,40 +124,50 @@ let pop_app = function
 (** Multiplication *)
 let mult = function
     (MInt x) :: (MInt y) :: s -> MInt (y * x) :: s
+  | _::_::s-> MException "GenericException"::s
   | _ -> error "int and int expected in mult"
 
 (** Division *)
 let quot = function
-  | (MInt 0) :: (MInt _) :: s -> MError :: s
+  | (MInt 0) :: (MInt _) :: s -> MException "DivisionByZero"::s
   | (MInt x) :: (MInt y) :: s -> MInt (y / x) :: s
+  | _::_::s -> MException "GenericException"::s
   | _ -> error "int and int expected in mult"
 
 (** Addition *)
 let add = function
     (MInt x) :: (MInt y) :: s -> MInt (y + x) :: s
+  | _::_::s-> MException "GenericException"::s
   | _ -> error "int and int expected in add"
 
 (** Subtraction *)
 let sub = function
     (MInt x) :: (MInt y) :: s -> MInt (y - x) :: s
+  | _::_::s-> MException "GenericException"::s
   | _ -> error "int and int expected in sub"
 
 (** Equality *)
 let equal = function
     (MInt x) :: (MInt y) :: s -> MBool (y = x) :: s
+  | _::_::s-> MException "GenericException"::s
   | _ -> error "int and int expected in equal"
 
 (** Less than *)
 let less = function
     (MInt x) :: (MInt y) :: s -> MBool (y < x) :: s
+  | _::_::s-> MException "GenericException"::s
   | _ -> error "int and int expected in less"
+
 
 (** [exec instr frms stck envs] executes instruction [instr] in the
     given state [(frms, stck, envs)], where [frms] is a stack of frames,
     [stck] is a stack of machine values, and [envs] is a stack of
     environments. The return value is a new state and a flag indicating
     whether we reached an error state.
- *)
+  *)
+
+(* Forward declaration of the run function *)
+
 let exec instr frms stck envs =
   match instr with
     | IErr -> ([], [MError], [])
@@ -165,30 +183,57 @@ let exec instr frms stck envs =
     | IInt k  -> (frms, (MInt k) :: stck, envs)
     | IBool b -> (frms, (MBool b) :: stck, envs)
     | IClosure (f, x, frm) ->
-	(match envs with
-	     env :: _ ->
-	       let rec c = MClosure (x, frm, (f,c) :: env) in
-		 (frms, c :: stck, envs)
-	   | [] -> error "no environment for a closure")
+  (match envs with
+        env :: _ ->
+          let rec c = MClosure (x, frm, (f,c) :: env) in
+      (frms, c :: stck, envs)
+      | [] -> error "no environment for a closure")
     (* Control instructions *)
     | IBranch (f1, f2) ->
-	let (b, stck') = pop_bool stck in
-	  ((if b then f1 else f2) :: frms, stck', envs)
+  let (b, stck') = pop_bool stck in
+  begin
+    match stck' with
+    |MException _::_ -> (frms, stck',envs)
+    | _ -> ((if b then f1 else f2) :: frms, stck', envs)
+  end
     | ICall ->
-	let (x, frm, env, v, stck') = pop_app stck in
-	  (frm :: frms, stck', ((x,v) :: env) :: envs)
+  let (x, frm, env, v, stck') = pop_app stck in
+    (frm :: frms, stck', ((x,v) :: env) :: envs)
     | IPopEnv ->
-	(match envs with
-	     [] -> error "no environment to pop"
-	   | _ :: envs' -> (frms, stck, envs'))
+      ( match frms with
+      | [] -> error "no frame to pop after IPopEnv"
+      | _current_frame :: frms' ->
+          (* pop both the current (empty) frame and the env *)
+          (frms', stck, 
+            match envs with _ :: envs' -> envs' | [] -> error "no env"))
+    | IHandle (f1,f2) -> (f1::f2::frms, stck ,envs)
+    | IExc _ -> (frms, stck, envs)
 
-(** [run frm env] executes the frame [frm] in environment [env]. *)
+(** [run frm env] executes the frame [frm] in environment [env].*)
 let run frm env =
   let rec loop = function
     | (_, MError::_, _) -> MError
+    | ([],MException msg::_,_) -> MException msg  (*Handles exception*)
+      (*Handling case wher tyr block doesnt throw exception*)
+      | ([]::_::rest,v::stck,envs) 
+      when not (match v with MException _ -> true | _ -> false)->
+        loop (rest, v::stck, envs)
+    | (_::(IExc e::handl)::rest, MException msg::stc,envs)->
+      begin
+        match e with
+        | x when x = msg ->
+          Zoo.print_info "Handling Exception %s@." msg;
+          loop ((handl::rest), stc, envs)
+        | _ -> MException msg
+      end
+    
     | ([], [v], _) -> v
     | ((i::is) :: frms, stck, envs) -> loop (exec i (is::frms) stck envs)
     | ([] :: frms, stck, envs) -> loop (frms, stck, envs)
-    | _ -> error "illegal end of program"
+    | _ -> 
+      Zoo.print_info
+      "Exiting run: frames=%d"
+      (List.length frm);
+      error "illegal end of program"
   in
     loop ([frm], [], [env])
