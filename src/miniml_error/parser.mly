@@ -20,6 +20,10 @@
 %token LET
 %token SEMISEMI
 %token EOF
+%token LBRAC RBRAC
+%token TRY WITH
+%token PIPE 
+%token <string>EXC
 
 %start file
 %type <Syntax.command list> file
@@ -80,6 +84,8 @@ plain_expr:
     { If (e1, e2, e3) }
   | FUN x = VAR LPAREN f = VAR COLON t1 = ty RPAREN COLON t2 = ty IS e = expr
     { Fun (x, f, t1, t2, e) }
+  | TRY LBRAC e1 = expr RBRAC WITH LBRAC PIPE exc = EXC TARROW e2 = expr RBRAC
+    { TryWith (e1,exc,e2) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
@@ -100,6 +106,8 @@ plain_simple_expr:
     { Int n }
   | LPAREN e = plain_expr RPAREN  
     { e }    
+  | LBRAC e = plain_expr RBRAC
+    { e }
 
 ty:
   | TBOOL
