@@ -7,6 +7,7 @@ let typing_error ~loc = Zoo.error ~kind:"Type error" ~loc
 (** [check ctx ty e] verifies that expression [e] has type [ty] in
     context [ctx]. If it does, it returns unit, otherwise it raises the
     [Type_error] exception. *)
+
 let rec check ctx ty ({Zoo.loc;_} as e) =
   let ty' = type_of ctx e in
     if ty' <> ty then
@@ -18,6 +19,7 @@ let rec check ctx ty ({Zoo.loc;_} as e) =
 (** [type_of ctx e] computes the type of expression [e] in context
     [ctx]. If [e] does not have a type it raises the [Type_error]
     exception. *)
+
 and type_of ctx {Zoo.data=e; loc} =
   match e with
     | Abort -> assert false (* this should not happen as the user has no way of referring to Abort *)
@@ -46,3 +48,4 @@ and type_of ctx {Zoo.data=e; loc} =
     typing_error ~loc
             "this expression is used as a function but its type is %t" (Print.ty ty)
       end
+    | TryWith (_ , _ , e2) -> type_of ctx e2s
