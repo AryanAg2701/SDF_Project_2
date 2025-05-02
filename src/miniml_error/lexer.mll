@@ -8,6 +8,11 @@ rule token = parse
     [' ' '\t' '\r'] { token lexbuf }
   | '\n'            { Lexing.new_line lexbuf; token lexbuf }
   | ['0'-'9']+      { INT (int_of_string(Lexing.lexeme lexbuf)) }
+  | "try"           { TRY }
+  | "with"          { WITH }
+  | '|'             { PIPE }
+  | "DivisionByZero"
+  | "GenericException"  { EXC (Lexing.lexeme lexbuf) }
   | "int"           { TINT }
   | "bool"          { TBOOL }
   | "true"          { TRUE }
@@ -31,6 +36,9 @@ rule token = parse
   | '/'             { DIVIDE }
   | var             { VAR (Lexing.lexeme lexbuf) }
   | eof             { EOF }
+  | '{'             { LBRAC }
+  | '}'             { RBRAC }
+
 
 {
 }
