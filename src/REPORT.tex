@@ -1,0 +1,144 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{SDF\_Project2\_Report}
+\author{ Aryan Agarwal(ES23BTECH1008) Harshit Daheriya(ES23BTECH11017)}
+\date{May 2025}
+
+\begin{document}
+
+\maketitle
+
+\section*{Feature Added}
+\begin{itemize}
+    \item Introduced \texttt{try\{\} with\{\}} block for structured exception handling.
+    \item Added two exceptions:
+    \begin{itemize}
+        \item \textbf{DivisionByZero}: Raised when division by zero occurs.
+        \item \textbf{GenericException}: Raised when an undefined operation is performed (e.g., adding two values of different types).
+    \end{itemize}
+\end{itemize}
+
+\section*{Changes Made}
+
+\subsection*{1. Lexer}
+\begin{itemize}
+    \item Added new tokens:
+    \begin{itemize}
+        \item \texttt{try}
+        \item \texttt{with}
+        \item \texttt{\{}
+        \item \texttt{\}}
+        \item \texttt{DivisionByZero}
+        \item \texttt{GenericException}
+    \end{itemize}
+\end{itemize}
+
+\subsection*{2. Syntax}
+\begin{itemize}
+    \item Added a new AST node: \texttt{TryWith()}.
+\end{itemize}
+
+\subsection*{3. Parser}
+\begin{itemize}
+    \item Added grammar rules to handle the \texttt{try\{\} with\{\}} block.
+\end{itemize}
+
+\subsection*{4. Type Checking}
+\begin{itemize}
+    \item Added type checking for \texttt{TryWith()}.
+    \item We only check the type of the expression in the with block if there is an error in the try block expression; otherwise, the machine handles it.
+\end{itemize}
+
+\subsection*{5. Machine}
+\begin{itemize}
+    \item Introduced a new machine value:
+    \begin{itemize}
+        \item \texttt{MException} of type \texttt{string} to hold the exception name.
+    \end{itemize}
+    \item Added a new instruction:
+    \begin{itemize}
+        \item \texttt{IHandle} to handle the \texttt{try\{\} with\{\}} block.
+    \end{itemize}
+    \item When an exception occurs:
+    \begin{itemize}
+        \item An \texttt{MException} with the exception name is pushed onto the machine stack when we encounter some behavior that is undefined.
+    \end{itemize}
+\end{itemize}
+
+
+
+\maketitle
+
+\section*{Correct Cases}
+
+\begin{itemize}
+  \item \texttt{try \{42\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{try \{3 * 5 + (if 5 < 6 then 10 else 100)\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{try \{21/6\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{try \{21/0\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{let multiplyby = fun f (n : int) : int is if n = 0 then 0 else 2*n;;}
+
+        \texttt{try \{multiplyby 5\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{let fact = fun f (n : int) : int is if n = 0 then 1 else n * f (n-1);;}
+
+        \texttt{try \{fact 5\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{let primedividebyn = fun f (n : int) : int is 333/n;;}
+
+        \texttt{try \{primedividebyn 5\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{let primedividebyn = fun f (n : int) : int is 333/n;;}
+
+        \texttt{try \{primedividebyn 0\} with \{ | DivisionByZero -> 100 \};;}
+  \item \texttt{let safeprimedividebyn = fun f (n : int) : int is if n = 0 then 0 else 333/n;;}
+
+        \texttt{try \{safeprimedividebyn 0\} with \{ | DivisionByZero -> 100 \};;}
+  \item \texttt{let safeprimedividebyn = fun f (n : int) : int is if n = 0 then 0 else 333/n;;}
+
+        \texttt{try \{safeprimedividebyn true\} with \{ | GenericException -> 100 \};;}
+  \item \texttt{try \{2 + true\} with \{ | GenericException -> 100 \};;}
+\end{itemize}
+
+\section*{Malfunction Test Cases}
+
+\begin{itemize}
+  \item \texttt{let safe\_primedividebyn = fun f (n : int) : int is if n = 0 then 0 else 333/n;;}
+
+        \texttt{try \{safe\_primedividebyn true\} with \{ | DivisionByZero -> 100 \};;}
+  \item \texttt{let safeprimedividebyn = fun f (n : int) : int is if n = 0 then 0 else 333/n;;}
+
+        \texttt{try \{safeprimedividebyn true\} with \{ | GenericException i -> i \};;}
+  \item \texttt{let multiplyby2 = fun f (n : int) : int is if n = 0 then 0 else 2*n;;}
+
+        \texttt{try \{multiplyby2 \textbackslash 5\} with \{ | DivisionByZero -> 0 \};;}
+  \item \texttt{try \{2 + true\} with \{ | GenericException -> 100, DivisionByZero -> -100 \};;}
+\end{itemize}
+
+\section*{Commit History}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{images/p1.png}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{images/p2.png}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{images/p3.png}
+\end{figure}
+\newpage
+\section*{Key Learnings}
+
+The key things we learned from this project are, first of all, how a lexer and parser work. Coincidentally, we were taking Theory of Computation this semester, so it was great to see regular languages in the lexer and context‑free grammars in the parser. We also learned a lot about collaborative development using GitHub, and improved our workflow with feature branches, pull requests, and merge‑conflict resolution.
+\end{document}
