@@ -48,4 +48,4 @@ and type_of ctx {Zoo.data=e; loc} =
     typing_error ~loc
             "this expression is used as a function but its type is %t" (Print.ty ty)
       end
-    | TryWith (_ , _ , e2) -> type_of ctx e2s
+    | TryWith (_ , _ , e2) -> type_of ctx e2
